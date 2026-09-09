@@ -1,6 +1,6 @@
 import chromadb
 from pypdf import PdfReader
-from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import SentenceTransformer
 from ollama import chat
 import os
 
@@ -27,18 +27,6 @@ class CollegeNotesAssistant:
         self.ingest_pdf()
         
        
-
-    # def customize_chunks(self, chunk_size=None, overlap=None, n_results=None, threshold=None):
-    #     if(self.show_debug):
-    #         print(f"Current chunk size: {self.chunk_size}, Current overlap: {self.overlap}, Current number of results: {self.n_results}, Current threshold: {self.threshold}")
-    #         print("You can customize the chunk size, overlap, number of results, and threshold for similarity search.")
-    #         self.chunk_size = chunk_size if chunk_size is not None else self.chunk_size
-    #         self.overlap = overlap if overlap is not None else self.overlap 
-    #         self.n_results = n_results if n_results is not None else self.n_results
-    #         self.threshold = threshold if threshold is not None else self.threshold
-    #     else:
-    #         print("Debug mode is off. Enable debug mode to customize chunks.")
-
 
     def extract_text_from_pdf(self):
         try:
@@ -150,10 +138,16 @@ class CollegeNotesAssistant:
                 raise ValueError("No relevant documents found for the query.")
             
             context = "\n\n".join(results)
-            prompt = f"""Use the following context from my college notes to answer the question.\n
+            prompt = f"""You are a study assistant for college notes. Answer the question using ONLY the context provided below from the student's notes.\n
+
+            Rules:
+            1. Use ONLY information from the provided context. Do not use your general knowledge.\n
+            2. If the context does not contain enough information to answer, say: "This is not covered in the notes."\n
+            3. Be specific and cite details from the context when possible.\n
+            4. If multiple chunks contain relevant information, combine them into a complete answer.\n
+            5. Do not make up information or add details not present in the context.\n
             Context:\n{context}
             \n\nQuestion: {query}
-            \n\nConstraint: Provide a concise answer based on the context.Dont make up answers.
             \n\nAnswer:
             """
             message = [{"role": "user", "content": prompt}]
