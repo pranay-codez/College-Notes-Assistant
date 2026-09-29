@@ -3,9 +3,10 @@ from pypdf import PdfReader
 from sentence_transformers import SentenceTransformer
 from ollama import chat
 import os
-
+from dotenv import load_dotenv
+load_dotenv()
 class CollegeNotesAssistant:
-    def __init__(self, pdf_path, model_name='sentence-transformers/all-MiniLM-L6-v2' , chat_model_name = 'llama3.2', show_debug=False):
+    def __init__(self, pdf_path, model_name=None , chat_model_name = None, show_debug=False):
         self.client = chromadb.Client()
         self.collection = self.client.create_collection(
             name = "CollegeNotesPDFEmbeddings",
@@ -15,14 +16,14 @@ class CollegeNotesAssistant:
             }
         )
         self.pdf_path = os.path.abspath(pdf_path)
-        self.model = SentenceTransformer(model_name)
-        self.chat_model_name = chat_model_name
+        self.model = SentenceTransformer(model_name or os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"))
+        self.chat_model_name = chat_model_name or os.getenv("OLLAMA_MODEL", 'llama3.2')
         self.embeddings_generated = False
         # tuneable parameters
-        self.chunk_size = 370
-        self.overlap = 37
-        self.n_results = 2
-        self.threshold = 0.4
+        self.chunk_size = int(os.getenv("CHUNK_SIZE","370"))
+        self.overlap = int(os.getenv("CHUNK_OVERLAP","37"))
+        self.n_results = int(os.getenv("N_RESULTS","2"))
+        self.threshold = float(os.getenv("SIMILARITY_THRESHOLD","0.4"))
         self.show_debug = show_debug
         self.ingest_pdf()
         
@@ -184,89 +185,3 @@ class CollegeNotesAssistant:
         query = f"Define:{concept}"
         return self.chat_with_pdf(query)
 
-def main():
-    print("="*60)
-    print("College Notes AI Assistant")
-    print("="*60)
-
-    pdf_path = input("\nEnter the path to the PDF file: ")
-    college_notes_instance = CollegeNotesAssistant(pdf_path)
-
-    print("\nYou can ask questions about your notes.")
-    print("Type 'explain <concept>' to explain a concept.")
-    print("Type 'summarize <topic>' to summarize a topic.")
-    print("Type 'define <term>' to find a definition.")
-    print("Type 'debug on/off' to toggle debug output.")
-    print("Type 'q' to quit.\n")
-
-    while True:
-        user_input = input("Enter your query (or type 'q' to quit): ").strip()
-        if user_input == "":
-            print("Query cannot be empty. Please enter a valid query.")
-            continue
-        if user_input.lower() == 'q':
-            print("Exiting the program.")
-            break
-        if user_input.lower().startswith("debug "):
-            mode = user_input.split()[1].lower()
-            if mode == "on":
-                college_notes_instance.show_debug = True
-                print("Debug mode is ON.\n")
-            elif mode == "off":
-                college_notes_instance.show_debug = False
-                print("Debug mode is OFF.\n")
-                continue
-            else:
-                print("Invalid debug command. Using default condition (debug off).\n")
-
-        elif user_input.lower().startswith("summarize "):
-            topic = user_input[10:].strip()
-            try:
-                if topic == "":
-                    raise ValueError("Topic cannot be empty. Please provide a valid topic to summarize.")
-                response = college_notes_instance.summarize_chat(topic)
-                if response is None:
-                    raise ValueError("No response generated for the topic. Please check your input.")
-                print(f"Response: {response}\n")
-                continue
-            except ValueError as e:
-                print(f"Value error: {e}")
-                continue
-
-        elif user_input.lower().startswith("define "):
-            term = user_input[7:].strip()
-            try:
-                if term == "":
-                    raise ValueError("Term cannot be empty. Please provide a valid term to define.")
-                response = college_notes_instance.define_chat(term)
-                if response is None:
-                    raise ValueError("No response generated for the term. Please check your input.")
-                print(f"Response: {response}\n")
-                continue
-            except ValueError as e:
-                print(f"Value error: {e}")
-                continue
-
-        elif user_input.lower().startswith("explain "):
-            concept = user_input[8:].strip()
-            try:
-                if concept == "":
-                    raise ValueError("Concept cannot be empty. Please provide a valid concept to explain.")
-                response = college_notes_instance.explain_chat(concept)
-                
-                if response is None:
-                    raise ValueError("No response generated for the concept. Please check your input.")
-                print(f"Response: {response}\n")
-                continue
-            except ValueError as e:
-                print(f"Value error: {e}")
-                continue
-            
-            
-        else:
-            print("Processing your query...")
-            response = college_notes_instance.chat_with_pdf(user_input)
-            print(f"Response: {response}\n")
-            continue
-if __name__ == "__main__":
-    main()
